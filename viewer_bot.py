@@ -5,6 +5,7 @@ import sys
 import logging
 from datetime import datetime
 import random
+import brotli  # Brotli desteği için
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,14 +32,16 @@ class ViewerBot:
                 'User-Agent': random.choice(self.user_agents),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'tr,en-US;q=0.7,en;q=0.3',
-                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Encoding': 'gzip, deflate',  # br kaldırıldı
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
                 'Sec-Fetch-Dest': 'iframe',
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'cross-site',
                 'Pragma': 'no-cache',
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-cache',
+                'DNT': '1',
+                'Sec-GPC': '1'
             }
             
             async with aiohttp.ClientSession(headers=headers) as oturum:
@@ -48,7 +51,6 @@ class ViewerBot:
                         async with oturum.get(self.yayin_url, allow_redirects=True, timeout=30) as yanit:
                             if yanit.status == 200:
                                 logger.info(f"İframe {oturum_id}: Bağlantı başarılı ✓ [HTTP {yanit.status}]")
-                                # İframe içeriğini almak için
                                 await yanit.read()
                             else:
                                 logger.warning(f"İframe {oturum_id}: Bağlantı hatası ✗ [HTTP {yanit.status}]")
@@ -57,8 +59,7 @@ class ViewerBot:
                     except Exception as hata:
                         logger.error(f"İframe {oturum_id} hatası: {str(hata)}")
                     
-                    # Rastgele bekleme süresi (botluk belirtisi azaltmak için)
-                    bekleme = self.bekleme_suresi + random.uniform(-5, 5)
+                    bekleme = self.bekleme_suresi + random.uniform(-2, 2)
                     await asyncio.sleep(max(1, bekleme))
                     
         except Exception as hata:
@@ -136,6 +137,15 @@ def kullanici_bilgilerini_al():
 
 def main():
     try:
+        # Brotli kurulu mu kontrol et
+        try:
+            import brotli
+        except ImportError:
+            print("\nBrotli kütüphanesi eksik. Yükleniyor...")
+            import subprocess
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "Brotli"])
+            print("Brotli kurulumu tamamlandı.\n")
+        
         yayin_url, izleyici_sayisi, bekleme_suresi = kullanici_bilgilerini_al()
         
         bot = ViewerBot(
